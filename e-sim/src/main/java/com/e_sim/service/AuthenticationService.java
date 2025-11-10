@@ -12,10 +12,13 @@ import org.springframework.security.oauth2.jwt.JwtException;
 import org.springframework.stereotype.Service;
 
 import com.e_sim.dao.entity.PhoneNumber;
+import com.e_sim.dao.entity.SignupRequest;
 import com.e_sim.dao.entity.User;
 import com.e_sim.dao.repository.RoleRepository;
+import com.e_sim.dao.repository.SignupRequestRepository;
 import com.e_sim.dao.repository.UserRepository;
 import com.e_sim.dto.request.AuthenticationReq;
+import com.e_sim.dto.request.OtpReq;
 import com.e_sim.dto.request.RegisterUserReq;
 import com.e_sim.dto.response.ApiRes;
 import com.e_sim.dto.response.AuthenticationRes;
@@ -27,6 +30,7 @@ import com.e_sim.security.JwtUtil;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.Optional;
 
 @Slf4j
 @Service
@@ -38,6 +42,8 @@ public class AuthenticationService {
     private final PasswordEncoder passwordEncoder;
     private final RoleRepository roleRepository;
     private final JwtUtil jwtUtil;
+    private final SignupRequestRepository signupRequestRepository;
+    private final OtpImpl otpService;
 
     public ApiRes<AuthenticationRes> signIn(AuthenticationReq authenticationReq) {
         log.info("Sign-in attempt for username/email: {}", authenticationReq.getUsername());
@@ -70,20 +76,88 @@ public class AuthenticationService {
         return ApiRes.success(new AuthenticationRes(tokenValue, userRes), HttpStatus.OK);
     }
 
+    // @Transactional
+    // public ApiRes<String> signUp(RegisterUserReq req) {
+    //     log.info("Signup initiated for email: {}", req.getEmail());
+    //     validateUserDoesNotExist(req.getUsername(), req.getEmail());
+
+    //     SignupRequest signup = SignupRequest.builder()
+    //             .firstname(req.getFirstname())
+    //             .lastname(req.getLastname())
+    //             .email(req.getEmail())
+    //             .username(req.getUsername())
+    //             .password(passwordEncoder.encode(req.getPassword()))
+    //             .phoneNumber(req.getPhoneNumber())
+    //             .createdAt(LocalDateTime.now())
+    //             .build();
+
+    //     signupRequestRepository.save(signup);
+
+    //     OtpReq otpReq = OtpReq.builder()
+    //             .email(req.getEmail())
+    //             .build();
+    //     otpService.sendOtp(otpReq);
+
+    //     log.info("OTP sent successfully to {}", req.getEmail());
+    //     return ApiRes.success("OTP sent successfully. Please verify your email to complete registration.", HttpStatus.OK);
+    // }
     @Transactional
-    public ApiRes<UserRes> signUp(RegisterUserReq registerUserReq) {
-        log.info("Registration attempt for username: {}", registerUserReq.getUsername());
+    public ApiRes<String> signUp(RegisterUserReq req) {
+        log.info("Signup initiated for email: {}", req.getEmail());
 
-        validateUserDoesNotExist(registerUserReq.getUsername(), registerUserReq.getEmail());
-
-        final var newUser = createUserFromRequest(registerUserReq);
-        log.debug("New user created with ID: {}", newUser.getId());
-
-        final var userRes = new UserRes(newUser);
-        log.info("Successful registration for user ID: {}", newUser.getId());
-
-        return ApiRes.success(userRes, HttpStatus.CREATED);
+        validateUserDoesNotExist(req.getUsername(), req.getEmail());
+        Optional<SignupRequest> existingSignupOpt = signupRequestRepository.findByEmail(req.getEmail());
+        SignupRequest signup;
+        if (existingSignupOpt.isPresent()) {
+            signup = existingSignupOpt.get();
+            log.info("Existing signup request found for email: {}, updating record", req.getEmail());
+            signup.setFirstname(req.getFirstname());
+            signup.setLastname(req.getLastname());
+            signup.setUsername(req.getUsername());
+            signup.setPassword(passwordEncoder.encode(req.getPassword()));
+            signup.setPhoneNumber(req.getPhoneNumber());
+            signup.setCreatedAt(LocalDateTime.now());
+        } else {
+            signup = SignupRequest.builder()
+                    .firstname(req.getFirstname())
+                    .lastname(req.getLastname())
+                    .email(req.getEmail())
+                    .username(req.getUsername())
+                    .password(passwordEncoder.encode(req.getPassword()))
+                    .phoneNumber(req.getPhoneNumber())
+                    .createdAt(LocalDateTime.now())
+                    .build();
+        }
+        signupRequestRepository.save(signup);
+        OtpReq otpReq = OtpReq.builder()
+                .email(req.getEmail())
+                .build();
+        otpService.sendOtp(otpReq);
+        log.info("OTP sent successfully to {}", req.getEmail());
+        return ApiRes.success(
+                "OTP sent successfully. Please verify your email to complete registration.",
+                HttpStatus.OK
+        );
     }
+
+
+    @Transactional
+    public ApiRes<UserRes> verifyOtp(String otp) {
+        log.info("Verifying OTP: {}", otp);
+
+        String verifiedEmail = otpService.verifyOtp(OtpReq.builder().otp(otp).build());
+
+        SignupRequest signup = signupRequestRepository.findByEmail(verifiedEmail)
+                .orElseThrow(() -> new RuntimeException("No signup request found for email: " + verifiedEmail));
+
+        User newUser = createUserFromSignup(signup);
+            log.debug("New user created with ID: {}", newUser.getId());
+
+        signupRequestRepository.delete(signup);
+            log.info("User created successfully after OTP verification: {}", verifiedEmail);
+            return ApiRes.success(new UserRes(newUser), HttpStatus.CREATED);
+    }
+
 
     public ApiRes<ValidationRes> validateToken(String token) {
         if (Strings.isBlank(token)) {
@@ -133,17 +207,16 @@ public class AuthenticationService {
         }
     }
 
-    private User createUserFromRequest(RegisterUserReq request) {
-
+    private User createUserFromSignup(SignupRequest signup) {
         User newUser = User.builder()
-                .firstname(request.getFirstname())
-                .lastname(request.getLastname())
-                .email(request.getEmail())
-                .username(request.getUsername())
-                .password(passwordEncoder.encode(request.getPassword()))
+                .firstname(signup.getFirstname())
+                .lastname(signup.getLastname())
+                .email(signup.getEmail())
+                .username(signup.getUsername())
+                .password(signup.getPassword()) 
                 .build();
 
-        newUser.addPhoneNumber(new PhoneNumber(request.getPhoneNumber()));
+        newUser.addPhoneNumber(new PhoneNumber(signup.getPhoneNumber()));
         newUser.addRole(roleRepository.findDefaultRoles());
 
         return userRepository.save(newUser);

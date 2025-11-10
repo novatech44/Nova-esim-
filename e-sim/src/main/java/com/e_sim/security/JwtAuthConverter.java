@@ -22,10 +22,8 @@ public class JwtAuthConverter implements Converter<Jwt, AbstractAuthenticationTo
     }
 
     private Collection<GrantedAuthority> extractAuthorities(Jwt jwt) {
-        // Extract roles from JWT
         List<String> roles = jwt.getClaimAsStringList("roles");
 
-        // Extract permissions from JWT
         List<String> permissions = jwt.getClaimAsStringList("permissions");
 
         return Stream.concat(
