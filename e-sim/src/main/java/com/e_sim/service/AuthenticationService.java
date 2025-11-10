@@ -1,5 +1,6 @@
 package com.e_sim.service;
 
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -45,62 +46,82 @@ public class AuthenticationService {
     private final SignupRequestRepository signupRequestRepository;
     private final OtpImpl otpService;
 
-    public ApiRes<AuthenticationRes> signIn(AuthenticationReq authenticationReq) {
+    // public ApiRes<AuthenticationRes> signIn(AuthenticationReq authenticationReq) {
+    //     log.info("Sign-in attempt for username/email: {}", authenticationReq.getUsername());
+
+    //     User user = userRepository.findByEmailOrUsername(authenticationReq.getUsername())
+    //             .filter(value -> {
+    //                 boolean passwordMatches = passwordEncoder.matches(
+    //                         authenticationReq.getPassword(),
+    //                         value.getPassword()
+    //                 );
+    //                 if (!passwordMatches) {
+    //                     log.warn("Password mismatch for user: {}", authenticationReq.getUsername());
+    //                 }
+    //                 return passwordMatches;
+    //             })
+    //             .orElseThrow(() -> {
+    //                 log.error("Authentication failed for: {}", authenticationReq.getUsername());
+    //                 return new UsernameNotFoundException("Invalid credentials");
+    //             });
+
+    //     String tokenValue = jwtUtil.createToken(user);
+    //     log.debug("JWT token generated for user ID: {}", user.getId());
+
+    //     user.setLastLoginTime(LocalDateTime.now(ZoneId.of("Africa/Lagos")));
+    //     userRepository.save(user);
+
+    //     final UserRes userRes = new UserRes(user);
+    //     log.info("Successful authentication for user ID: {}", user.getId());
+
+    //     return ApiRes.success(new AuthenticationRes(tokenValue, userRes, null), HttpStatus.OK);
+    // }
+    public ApiRes<AuthenticationRes> signIn(AuthenticationReq authenticationReq, HttpServletResponse response) {
         log.info("Sign-in attempt for username/email: {}", authenticationReq.getUsername());
 
         User user = userRepository.findByEmailOrUsername(authenticationReq.getUsername())
-                .filter(value -> {
-                    boolean passwordMatches = passwordEncoder.matches(
-                            authenticationReq.getPassword(),
-                            value.getPassword()
-                    );
-                    if (!passwordMatches) {
-                        log.warn("Password mismatch for user: {}", authenticationReq.getUsername());
-                    }
-                    return passwordMatches;
-                })
+                .filter(u -> passwordEncoder.matches(authenticationReq.getPassword(), u.getPassword()))
                 .orElseThrow(() -> {
                     log.error("Authentication failed for: {}", authenticationReq.getUsername());
                     return new UsernameNotFoundException("Invalid credentials");
                 });
 
-        String tokenValue = jwtUtil.createToken(user);
-        log.debug("JWT token generated for user ID: {}", user.getId());
+        String accessToken = jwtUtil.createToken(user);
+        String refreshToken = jwtUtil.createRefreshToken(user);
+
+        response.setHeader("Set-Cookie",
+            "refreshToken=" + refreshToken +
+            "; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=" + (7 * 24 * 60 * 60)
+        );
 
         user.setLastLoginTime(LocalDateTime.now(ZoneId.of("Africa/Lagos")));
         userRepository.save(user);
 
-        final UserRes userRes = new UserRes(user);
-        log.info("Successful authentication for user ID: {}", user.getId());
-
-        return ApiRes.success(new AuthenticationRes(tokenValue, userRes), HttpStatus.OK);
+        return ApiRes.success(new AuthenticationRes(accessToken, new UserRes(user), null), HttpStatus.OK);
     }
 
-    // @Transactional
-    // public ApiRes<String> signUp(RegisterUserReq req) {
-    //     log.info("Signup initiated for email: {}", req.getEmail());
-    //     validateUserDoesNotExist(req.getUsername(), req.getEmail());
 
-    //     SignupRequest signup = SignupRequest.builder()
-    //             .firstname(req.getFirstname())
-    //             .lastname(req.getLastname())
-    //             .email(req.getEmail())
-    //             .username(req.getUsername())
-    //             .password(passwordEncoder.encode(req.getPassword()))
-    //             .phoneNumber(req.getPhoneNumber())
-    //             .createdAt(LocalDateTime.now())
-    //             .build();
+    public ApiRes<AuthenticationRes> refreshToken(String refreshToken, HttpServletResponse response) {
+        if (Strings.isBlank(refreshToken)) {
+            return ApiRes.error(null, HttpStatus.UNAUTHORIZED);
+        }
 
-    //     signupRequestRepository.save(signup);
+        String username = jwtUtil.getUsernameFromToken(refreshToken);
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
 
-    //     OtpReq otpReq = OtpReq.builder()
-    //             .email(req.getEmail())
-    //             .build();
-    //     otpService.sendOtp(otpReq);
+        String newAccessToken = jwtUtil.createToken(user);
+        String newRefreshToken = jwtUtil.createRefreshToken(user);
 
-    //     log.info("OTP sent successfully to {}", req.getEmail());
-    //     return ApiRes.success("OTP sent successfully. Please verify your email to complete registration.", HttpStatus.OK);
-    // }
+        response.setHeader("Set-Cookie",
+            "refreshToken=" + newRefreshToken +
+            "; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=" + (7 * 24 * 60 * 60)
+        );
+
+        return ApiRes.success(new AuthenticationRes(newAccessToken, new UserRes(user), null), HttpStatus.OK);
+    }
+
+
     @Transactional
     public ApiRes<String> signUp(RegisterUserReq req) {
         log.info("Signup initiated for email: {}", req.getEmail());

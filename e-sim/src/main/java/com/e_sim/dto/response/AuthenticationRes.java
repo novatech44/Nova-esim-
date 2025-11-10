@@ -10,4 +10,5 @@ import lombok.Data;
 public class AuthenticationRes {
     private String accessToken;
     private UserRes user;
+    private String refreshToken;
 }

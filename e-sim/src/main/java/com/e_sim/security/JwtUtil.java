@@ -26,55 +26,106 @@ import java.util.List;
 @Component
 @RequiredArgsConstructor
 public class JwtUtil {
+    // private final JwtEncoder encoder;
+    // private final JwtDecoder jwtDecoder;
+    // private final AppProperties appProperties;
+    
+
+    // public String createToken(User user) {
+    //     Instant nowInstant = Instant.now();
+
+    //     JwsHeader jwsHeader = JwsHeader.with(MacAlgorithm.HS256).build();
+
+    //     List<String> roleNames = user.getRoles().stream()
+    //             .map(Role::getName)
+    //             .toList();
+
+    //     List<String> permissionNames = user.getRoles().stream()
+    //             .flatMap(role -> role.getPermissions().stream())
+    //             .map(Permission::getName)
+    //             .toList();
+
+    //     JwtClaimsSet claims = JwtClaimsSet.builder()
+    //             .issuer(appProperties.getJwtIssuer())
+    //             .issuedAt(nowInstant)
+    //             .expiresAt(nowInstant.plusSeconds(appProperties.getJwtExpiresAt()))
+    //             .subject(user.getUsername())
+    //             .claim("roles", roleNames)
+    //             .claim("permissions", permissionNames)
+    //             .build();
+
+    //     return encoder.encode(JwtEncoderParameters.from(jwsHeader, claims)).getTokenValue();
+    // }
+
+    // public String getUsernameFromToken(String token) {
+    //     Jwt jwt = jwtDecoder.decode(token);
+    //     return jwt.getSubject();
+    // }
+
+    // public boolean isNotTokenExpired(String token) {
+    //     Instant expirationTime = jwtDecoder.decode(token).getExpiresAt();
+    //     return expirationTime != null && expirationTime.isAfter(Instant.now());
+    // }
+
+    // public User getAuthenticatedUser() {
+    //     try {
+    //         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+    //         if (authentication != null && authentication.getPrincipal() instanceof User user) {
+    //             return user;
+    //         }
+    //     } catch (Exception e) {
+    //         log.info("Failed to retrieve authenticated user: {}", e.getMessage());
+    //     }
+    //     throw new UnauthorizedException("User is not authenticated");
+    // }
     private final JwtEncoder encoder;
     private final JwtDecoder jwtDecoder;
     private final AppProperties appProperties;
 
     public String createToken(User user) {
-        Instant nowInstant = Instant.now();
+        return createJwt(user, appProperties.getJwtExpiresAt());
+    }
+
+    public String createRefreshToken(User user) {
+        long refreshTokenExpiry = 7 * 24 * 60 * 60L;
+        return createJwt(user, refreshTokenExpiry);
+    }
+
+    private String createJwt(User user, long expiresInSeconds) {
+        Instant now = Instant.now();
 
         JwsHeader jwsHeader = JwsHeader.with(MacAlgorithm.HS256).build();
 
-        List<String> roleNames = user.getRoles().stream()
-                .map(Role::getName)
-                .toList();
-
-        List<String> permissionNames = user.getRoles().stream()
-                .flatMap(role -> role.getPermissions().stream())
+        List<String> roles = user.getRoles().stream().map(Role::getName).toList();
+        List<String> permissions = user.getRoles().stream()
+                .flatMap(r -> r.getPermissions().stream())
                 .map(Permission::getName)
                 .toList();
 
         JwtClaimsSet claims = JwtClaimsSet.builder()
                 .issuer(appProperties.getJwtIssuer())
-                .issuedAt(nowInstant)
-                .expiresAt(nowInstant.plusSeconds(appProperties.getJwtExpiresAt()))
+                .issuedAt(now)
+                .expiresAt(now.plusSeconds(expiresInSeconds))
                 .subject(user.getUsername())
-                .claim("roles", roleNames)
-                .claim("permissions", permissionNames)
+                .claim("roles", roles)
+                .claim("permissions", permissions)
                 .build();
 
         return encoder.encode(JwtEncoderParameters.from(jwsHeader, claims)).getTokenValue();
     }
 
     public String getUsernameFromToken(String token) {
-        Jwt jwt = jwtDecoder.decode(token);
-        return jwt.getSubject();
+        return jwtDecoder.decode(token).getSubject();
     }
 
     public boolean isNotTokenExpired(String token) {
-        Instant expirationTime = jwtDecoder.decode(token).getExpiresAt();
-        return expirationTime != null && expirationTime.isAfter(Instant.now());
+        Instant exp = jwtDecoder.decode(token).getExpiresAt();
+        return exp != null && exp.isAfter(Instant.now());
     }
 
     public User getAuthenticatedUser() {
-        try {
-            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            if (authentication != null && authentication.getPrincipal() instanceof User user) {
-                return user;
-            }
-        } catch (Exception e) {
-            log.info("Failed to retrieve authenticated user: {}", e.getMessage());
-        }
-        throw new UnauthorizedException("User is not authenticated");
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getPrincipal() instanceof User user) return user;
+        throw new UnauthorizedException("User not authenticated");
     }
 }

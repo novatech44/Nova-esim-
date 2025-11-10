@@ -9,12 +9,14 @@ import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.logging.log4j.util.Strings;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
 import com.e_sim.dto.request.AuthenticationReq;
 import com.e_sim.dto.request.OtpReq;
 import com.e_sim.dto.request.RegisterUserReq;
@@ -34,52 +36,93 @@ public class AuthenticationController {
 
     private final AuthenticationService authenticationService;
 
-    @Operation(
-            summary = "Authenticate user",
-            description = "Authenticates user credentials and returns JWT token",
-            responses = {
-                    @ApiResponse(
-                            responseCode = "200", description = "Authentication successful",
-                            content = @Content(schema = @Schema(implementation = ApiRes.class),
-                                    examples = @ExampleObject(value = "{\"responseCode\":\"200\",\"responseMessage\":\"success\",\"data\":{\"token\":\"eyJhbGciOi...\",\"user\":{\"username\":\"john_doe\"}}}"))
-                    ),
-                    @ApiResponse(responseCode = "401", description = "Invalid credentials",
-                            content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
-                    @ApiResponse(responseCode = "400", description = "Validation error",
-                            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
-            }
-    )
-    @PostMapping("/signin")
-    public ResponseEntity<ApiRes<AuthenticationRes>> signIn(
-            @Parameter(description = "authentication request payload", required = true,
-                    content = @Content(schema = @Schema(implementation = AuthenticationReq.class)))
-            @Valid @RequestBody AuthenticationReq authenticationReq) {
-
-        log.info("Sign-in request received for username: {}", authenticationReq.getUsername());
-        ApiRes<AuthenticationRes> response = authenticationService.signIn(authenticationReq);
-        return new ResponseEntity<>(response, response.getHttpStatus());
-    }
-
 //     @Operation(
-//             summary = "Register new user", description = "Creates a new user account with default roles",
+//             summary = "Authenticate user",
+//             description = "Authenticates user credentials and returns JWT token",
 //             responses = {
-//                     @ApiResponse(responseCode = "200", description = "Registration successful",
-//                             content = @Content(schema = @Schema(implementation = ApiRes.class))),
-//                     @ApiResponse(responseCode = "400", description = "Validation error or user exists",
+//                     @ApiResponse(
+//                             responseCode = "200", description = "Authentication successful",
+//                             content = @Content(schema = @Schema(implementation = ApiRes.class),
+//                                     examples = @ExampleObject(value = "{\"responseCode\":\"200\",\"responseMessage\":\"success\",\"data\":{\"token\":\"eyJhbGciOi...\",\"user\":{\"username\":\"john_doe\"}}}"))
+//                     ),
+//                     @ApiResponse(responseCode = "401", description = "Invalid credentials",
+//                             content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+//                     @ApiResponse(responseCode = "400", description = "Validation error",
 //                             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
 //             }
 //     )
-//     @PostMapping("/signup")
-//     public ResponseEntity<ApiRes<UserRes>> signUp(
-//             @Parameter(description = "Register user request payload", required = true,
-//                     content = @Content(schema = @Schema(implementation = RegisterUserReq.class)))
-//             @Valid @RequestBody RegisterUserReq registerUserReq) {
+//     @PostMapping("/signin")
+//     public ResponseEntity<ApiRes<AuthenticationRes>> signIn(
+//             @Parameter(description = "authentication request payload", required = true,
+//                     content = @Content(schema = @Schema(implementation = AuthenticationReq.class)))
+//             @Valid @RequestBody AuthenticationReq authenticationReq) {
 
-//         log.info("Registration request received for username: {}", registerUserReq.getUsername());
-//         ApiRes<UserRes> response = authenticationService.signUp(registerUserReq);
+//         log.info("Sign-in request received for username: {}", authenticationReq.getUsername());
+//         ApiRes<AuthenticationRes> response = authenticationService.signIn(authenticationReq);
 //         return new ResponseEntity<>(response, response.getHttpStatus());
 //     }
         @Operation(
+                summary = "Authenticate user",
+                description = "Authenticates user credentials and returns JWT token and sets refresh token in cookie",
+                responses = {
+                        @ApiResponse(
+                                responseCode = "200", description = "Authentication successful",
+                                content = @Content(schema = @Schema(implementation = ApiRes.class),
+                                        examples = @ExampleObject(value = "{\"responseCode\":\"200\",\"responseMessage\":\"success\",\"data\":{\"accessToken\":\"eyJhbGciOi...\",\"user\":{\"username\":\"john_doe\"}}}"))
+                        ),
+                        @ApiResponse(responseCode = "401", description = "Invalid credentials",
+                                content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+                        @ApiResponse(responseCode = "400", description = "Validation error",
+                                content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+                }
+        )
+        @PostMapping("/signin")
+        public ResponseEntity<ApiRes<AuthenticationRes>> signIn(
+                @Parameter(description = "authentication request payload", required = true,
+                        content = @Content(schema = @Schema(implementation = AuthenticationReq.class)))
+                @Valid @RequestBody AuthenticationReq authenticationReq,
+                HttpServletResponse response) {
+
+                log.info("Sign-in request received for username/email: {}", authenticationReq.getUsername());
+
+                ApiRes<AuthenticationRes> apiRes = authenticationService.signIn(authenticationReq, response);
+
+                return new ResponseEntity<>(apiRes, apiRes.getHttpStatus());
+        }
+
+        @Operation(
+                summary = "Refresh access token using refresh token",
+                description = "Generates a new access token and refresh token. Refresh token is sent via HttpOnly cookie.",
+                responses = {
+                        @ApiResponse(
+                                responseCode = "200", description = "Token refreshed successfully",
+                                content = @Content(schema = @Schema(implementation = ApiRes.class),
+                                        examples = @ExampleObject(value = "{\"responseCode\":\"200\",\"responseMessage\":\"success\",\"data\":{\"accessToken\":\"eyJhbGciOi...\",\"user\":{\"username\":\"john_doe\"}}}"))
+                        ),
+                        @ApiResponse(responseCode = "401", description = "Refresh token missing or invalid",
+                                content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+                }
+        )
+        @PostMapping("/refresh-token")
+        public ResponseEntity<ApiRes<AuthenticationRes>> refreshToken(
+                @CookieValue(value = "refreshToken", required = false) String refreshToken,
+                HttpServletResponse response) {
+
+        if (Strings.isBlank(refreshToken)) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(ApiRes.<AuthenticationRes>error(null, HttpStatus.UNAUTHORIZED));
+        }
+
+        ApiRes<AuthenticationRes> apiRes = authenticationService.refreshToken(refreshToken, response);
+
+        return new ResponseEntity<>(apiRes, apiRes.getHttpStatus());
+        }
+
+
+
+
+
+    @Operation(
                 summary = "Initiate user signup (OTP verification required)",
                 description = "Stores signup request and sends OTP to the provided email for verification.",
                 responses = {
@@ -146,4 +189,6 @@ public class AuthenticationController {
                 ApiRes<ValidationRes> response = authenticationService.validateToken(authHeader.substring(7));
                 return new ResponseEntity<>(response, response.getHttpStatus());
         }
+
+
 }
