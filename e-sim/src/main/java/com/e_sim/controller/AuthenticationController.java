@@ -36,31 +36,6 @@ public class AuthenticationController {
 
     private final AuthenticationService authenticationService;
 
-//     @Operation(
-//             summary = "Authenticate user",
-//             description = "Authenticates user credentials and returns JWT token",
-//             responses = {
-//                     @ApiResponse(
-//                             responseCode = "200", description = "Authentication successful",
-//                             content = @Content(schema = @Schema(implementation = ApiRes.class),
-//                                     examples = @ExampleObject(value = "{\"responseCode\":\"200\",\"responseMessage\":\"success\",\"data\":{\"token\":\"eyJhbGciOi...\",\"user\":{\"username\":\"john_doe\"}}}"))
-//                     ),
-//                     @ApiResponse(responseCode = "401", description = "Invalid credentials",
-//                             content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
-//                     @ApiResponse(responseCode = "400", description = "Validation error",
-//                             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
-//             }
-//     )
-//     @PostMapping("/signin")
-//     public ResponseEntity<ApiRes<AuthenticationRes>> signIn(
-//             @Parameter(description = "authentication request payload", required = true,
-//                     content = @Content(schema = @Schema(implementation = AuthenticationReq.class)))
-//             @Valid @RequestBody AuthenticationReq authenticationReq) {
-
-//         log.info("Sign-in request received for username: {}", authenticationReq.getUsername());
-//         ApiRes<AuthenticationRes> response = authenticationService.signIn(authenticationReq);
-//         return new ResponseEntity<>(response, response.getHttpStatus());
-//     }
         @Operation(
                 summary = "Authenticate user",
                 description = "Authenticates user credentials and returns JWT token and sets refresh token in cookie",
@@ -118,11 +93,7 @@ public class AuthenticationController {
         return new ResponseEntity<>(apiRes, apiRes.getHttpStatus());
         }
 
-
-
-
-
-    @Operation(
+        @Operation(
                 summary = "Initiate user signup (OTP verification required)",
                 description = "Stores signup request and sends OTP to the provided email for verification.",
                 responses = {
@@ -163,7 +134,6 @@ public class AuthenticationController {
         ApiRes<UserRes> response = authenticationService.verifyOtp(otpRequest.getOtp());
         return new ResponseEntity<>(response, response.getHttpStatus());
         }
-
 
 
         @Operation(
