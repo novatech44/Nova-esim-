@@ -19,7 +19,7 @@ import java.util.LinkedHashSet;
 @NoArgsConstructor
 @AllArgsConstructor
 @ToString(callSuper = true)
-@Table(name = "users", schema = "esim")
+@Table(name = "users")
 @Where(clause="deleted=false")
 @SQLDelete(sql="UPDATE users SET deleted=true WHERE id=?")
 public class User extends BaseEntity {

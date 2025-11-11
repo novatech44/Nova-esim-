@@ -18,7 +18,7 @@ import java.util.Set;
 @NoArgsConstructor
 @AllArgsConstructor
 @ToString(callSuper = true)
-@Table(name = "roles", schema = "esim")
+@Table(name = "roles")
 @Where(clause="deleted=false")
 @SQLDelete(sql="UPDATE roles SET deleted=true WHERE id=?")
 public class Role extends BaseEntity {

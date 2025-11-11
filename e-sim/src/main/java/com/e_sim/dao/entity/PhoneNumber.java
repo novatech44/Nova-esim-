@@ -15,7 +15,7 @@ import com.e_sim.util.NigerianPhoneNetworkDetector;
 @NoArgsConstructor
 @AllArgsConstructor
 @ToString(callSuper = true)
-@Table(name = "phone_numbers",schema = "esim")
+@Table(name = "phone_numbers")
 public class PhoneNumber extends BaseEntity {
 
 

@@ -16,7 +16,8 @@ import com.e_sim.constant.RoleTypeEnum;
 @SuperBuilder
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(name = "permissions", schema = "esim")
+@Table(name = "permissions")
+// @Table(name = "permissions", schema = "esim_db_xsn5")
 @Where(clause="deleted=false")
 @SQLDelete(sql="UPDATE permissions SET deleted=true WHERE id=?")
 public class Permission extends BaseEntity {
