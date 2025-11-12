@@ -21,15 +21,15 @@ public class Emailservice {
 
     private final JavaMailSender javaMailSender;
 
-    @Value("${spring.mail.username}")
-    private String emailsender;
+    // @Value("${spring.mail.username}")
+    // private String emailsender;
 
     public void sendEmail(EmailDetails emailDetails) {
         try {
             MimeMessage message = javaMailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
-            helper.setFrom(emailsender);
+            helper.setFrom("novatech10@outlook.com");
             helper.setTo(emailDetails.getReciepinet());
             helper.setSubject(emailDetails.getSubject());
             helper.setText(buildHtmlTemplate(emailDetails.getMessageBody()), true); 
@@ -52,7 +52,7 @@ public class Emailservice {
                             <p style="font-size: 14px; color: #555555;">%s</p>
                             <hr style="border: none; border-top: 1px solid #ddd;">
                             <p style="font-size: 12px; color: #888888; text-align: center;">
-                                &copy; %d MIALA. All rights reserved.
+                                &copy; %d NOVA TECH. All rights reserved.
                             </p>
                         </div>
                     </body>
