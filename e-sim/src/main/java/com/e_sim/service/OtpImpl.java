@@ -41,7 +41,7 @@ public class OtpImpl{
 
    
     @Transactional(propagation = Propagation.REQUIRED)
-    public void sendOtp(OtpReq req) {
+    public String sendOtp(OtpReq req) {
     // public void sendOtp(OtpReq req) {
         String email = req.getEmail();
         log.info("email where otp is being sent to: {}", email);  
@@ -60,8 +60,8 @@ public class OtpImpl{
 
             OtpVerification saved = otpVerificationRepository.save(otpEntity);
             log.info("Saved OTP [{}] for email: {}", saved.getOtpCode(), saved.getEmail());
-            sendOtpEmail(email, otp);
-            // return otp;
+            // sendOtpEmail(email, otp);
+            return otp;
         } catch (Exception e) {
             log.info("Error sending OTP for email: {}: {}", email, e.getMessage(), e);
             throw new RuntimeException("Error sending OTP", e);
@@ -91,7 +91,7 @@ public class OtpImpl{
             log.info("OTP verified for email: {}", email);
 
             // Send verified email success message
-            sendVerificationSuccessEmail(email);
+            // sendVerificationSuccessEmail(email);
 
             log.info("OTP verified successfully for email: {}", email);
             return email;
