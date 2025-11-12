@@ -42,7 +42,9 @@ public class OtpImpl{
    
     @Transactional(propagation = Propagation.REQUIRED)
     public void sendOtp(OtpReq req) {
-        String email = req.getEmail().trim().toLowerCase();  // Normalize the email
+        String email = req.getEmail();
+        log.info("email where otp is being sent to: {}", email);  
+        // String email = req.getEmail().trim().toLowerCase();  // Normalize the email
 
         try {
             // Clean up expired OTPs before sending a new one

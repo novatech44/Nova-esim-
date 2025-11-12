@@ -46,36 +46,7 @@ public class AuthenticationService {
     private final SignupRequestRepository signupRequestRepository;
     private final OtpImpl otpService;
 
-    // public ApiRes<AuthenticationRes> signIn(AuthenticationReq authenticationReq) {
-    //     log.info("Sign-in attempt for username/email: {}", authenticationReq.getUsername());
-
-    //     User user = userRepository.findByEmailOrUsername(authenticationReq.getUsername())
-    //             .filter(value -> {
-    //                 boolean passwordMatches = passwordEncoder.matches(
-    //                         authenticationReq.getPassword(),
-    //                         value.getPassword()
-    //                 );
-    //                 if (!passwordMatches) {
-    //                     log.warn("Password mismatch for user: {}", authenticationReq.getUsername());
-    //                 }
-    //                 return passwordMatches;
-    //             })
-    //             .orElseThrow(() -> {
-    //                 log.error("Authentication failed for: {}", authenticationReq.getUsername());
-    //                 return new UsernameNotFoundException("Invalid credentials");
-    //             });
-
-    //     String tokenValue = jwtUtil.createToken(user);
-    //     log.debug("JWT token generated for user ID: {}", user.getId());
-
-    //     user.setLastLoginTime(LocalDateTime.now(ZoneId.of("Africa/Lagos")));
-    //     userRepository.save(user);
-
-    //     final UserRes userRes = new UserRes(user);
-    //     log.info("Successful authentication for user ID: {}", user.getId());
-
-    //     return ApiRes.success(new AuthenticationRes(tokenValue, userRes, null), HttpStatus.OK);
-    // }
+    
     public ApiRes<AuthenticationRes> signIn(AuthenticationReq authenticationReq, HttpServletResponse response) {
         log.info("Sign-in attempt for username/email: {}", authenticationReq.getUsername());
 
@@ -124,8 +95,12 @@ public class AuthenticationService {
 
     @Transactional
     public ApiRes<String> signUp(RegisterUserReq req) {
+
         log.info("Signup initiated for email: {}", req.getEmail());
 
+        // String normalizedEmail = req.getEmail().trim().toLowerCase(); 
+
+         log.info("non-normaized email initiated for email: {}", req.getEmail());
         validateUserDoesNotExist(req.getUsername(), req.getEmail());
         Optional<SignupRequest> existingSignupOpt = signupRequestRepository.findByEmail(req.getEmail());
         SignupRequest signup;
@@ -167,9 +142,10 @@ public class AuthenticationService {
         log.info("Verifying OTP: {}", otp);
 
         String verifiedEmail = otpService.verifyOtp(OtpReq.builder().otp(otp).build());
+        // String req.getEmail() = verifiedEmail.trim().toLowerCase(); 
 
         SignupRequest signup = signupRequestRepository.findByEmail(verifiedEmail)
-                .orElseThrow(() -> new RuntimeException("No signup request found for email: " + verifiedEmail));
+            .orElseThrow(() -> new RuntimeException("No signup request found for email: " + verifiedEmail));
 
         User newUser = createUserFromSignup(signup);
             log.debug("New user created with ID: {}", newUser.getId());
