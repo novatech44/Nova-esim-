@@ -124,28 +124,28 @@ public class AuthenticationService {
                     .createdAt(LocalDateTime.now())
                     .build();
         }
-        // signupRequestRepository.save(signup);
-        // OtpReq otpReq = OtpReq.builder()
-        //         .email(req.getEmail())
-        //         .build();
-        // otpService.sendOtp(otpReq);
-        // log.info("OTP sent successfully to {}", req.getEmail());
-        // return ApiRes.success(
-        //         "OTP sent successfully. Please verify your email to complete registration.",
-        //         HttpStatus.OK
-        // );
-         signupRequestRepository.save(signup);
-
-        OtpReq otpReq = OtpReq.builder().email(req.getEmail()).build();
-        String otp = otpService.sendOtp(otpReq);  // returns the generated OTP
-
-        log.info("OTP generated successfully for {}", req.getEmail());
-
-        // Return OTP in the response temporarily
+        signupRequestRepository.save(signup);
+        OtpReq otpReq = OtpReq.builder()
+                .email(req.getEmail())
+                .build();
+        otpService.sendOtp(otpReq);
+        log.info("OTP sent successfully to {}", req.getEmail());
         return ApiRes.success(
-                "OTP generated successfully. Please verify your email to complete registration. OTP: " + otp,
+                "OTP sent successfully. Please verify your email to complete registration.",
                 HttpStatus.OK
         );
+        //  signupRequestRepository.save(signup);
+
+        // OtpReq otpReq = OtpReq.builder().email(req.getEmail()).build();
+        // String otp = otpService.sendOtp(otpReq);  // returns the generated OTP
+
+        // log.info("OTP generated successfully for {}", req.getEmail());
+
+        // // Return OTP in the response temporarily
+        // return ApiRes.success(
+        //         "OTP generated successfully. Please verify your email to complete registration. OTP: " + otp,
+        //         HttpStatus.OK
+        // );
     }
 
 
